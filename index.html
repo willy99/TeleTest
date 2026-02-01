@@ -42,7 +42,7 @@
         /* Сітка гри */
         .game-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 10px;
             max-width: 350px;
             width: 100%;
@@ -72,12 +72,33 @@
             visibility: visible;
             color: white;
         }
+
+        #timer-container {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+            padding: 5px 20px;
+            border-radius: 20px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+
+        .low-time {
+            color: #e74c3c;
+            animation: blink 0.5s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; }
+            to { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
 
     <div id="status">Черга Гравця 1</div>
-
+    <div id="timer-container">
+        Час: <span id="timer-value">60</span>с
+    </div>
     <div class="stats">
         <div id="p1-info" class="player-info active-p">П1: <span id="p1-score">0</span></div>
         <div id="p2-info" class="player-info">П2: <span id="p2-score">0</span></div>
@@ -89,9 +110,21 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+        tg.onEvent('mainButtonClicked', () => {
+            location.reload();
+        });
 
         const icons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇'];
-        let cards = [...icons, ...icons]; // Пари
+
+        const allIcons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇', '🍉', '🍍', '🥭', '🥝', '🌽', '🥕', '🥔', '🍄', '🍔', '🍕', '🌮', '🍣', '🍦', '🍩', '🍪', '🍫'];
+
+        // Вибираємо потрібну кількість залежно від розміру
+        const rows = 6;
+        const cols = 6; // або 8
+        const totalPairs = (rows * cols) / 2;
+        const selectedIcons = allIcons.slice(0, totalPairs);
+        let cards = [...selectedIcons, ...selectedIcons];
+
         let flippedCards = [];
         let scores = [0, 0];
         let currentPlayer = 0; // 0 або 1
@@ -102,6 +135,10 @@
 
         const grid = document.getElementById('grid');
         const status = document.getElementById('status');
+
+        let timeLeft = 60; // Час у секундах
+        let timerId = null;
+        const timerDisplay = document.getElementById('timer-value');
 
         // Створення карток
         cards.forEach((icon, index) => {
@@ -115,6 +152,7 @@
         });
 
         function flipCard(card) {
+            startTimer(); // Запуститься тільки один раз завдяки перевірці всередині
             if (!canClick || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
             card.classList.add('flipped');
@@ -164,6 +202,40 @@
             document.getElementById('p1-info').classList.toggle('active-p', currentPlayer === 0);
             document.getElementById('p2-info').classList.toggle('active-p', currentPlayer === 1);
             status.innerText = `Черга Гравця ${currentPlayer + 1}`;
+        }
+
+
+        function startTimer() {
+            if (timerId) return; // Якщо таймер уже запущений, нічого не робимо
+
+            timerId = setInterval(() => {
+                timeLeft--;
+                timerDisplay.innerText = timeLeft;
+
+                // Візуальне попередження, якщо залишилося менше 10 секунд
+                if (timeLeft <= 10) {
+                    document.getElementById('timer-container').classList.add('low-time');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerId);
+                    endGame("Час вичерпано!");
+                }
+            }, 1000);
+        }
+
+        function endGame(reason) {
+            canClick = false;
+            let winnerText = "";
+            if (scores[0] > scores[1]) winnerText = "Гравець 1 переміг!";
+            else if (scores[1] > scores[0]) winnerText = "Гравець 2 переміг!";
+            else winnerText = "Нічия!";
+
+            status.innerHTML = `⚠️ ${reason}<br>${winnerText}`;
+
+            // Показуємо кнопку перезапуску в Telegram
+            tg.MainButton.setText("Грати знову");
+            tg.MainButton.show();
         }
     </script>
 </body>
