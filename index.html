@@ -1,0 +1,17 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.7">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; -webkit-text-stroke: #000000}
+    span.s1 {font-kerning: none}
+  </style>
+</head>
+<body>
+<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt; &lt;html lang="uk"&gt; &lt;head&gt; &lt;meta charset="UTF-8"&gt; &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt; &lt;title&gt;My TG Clicker&lt;/title&gt; &lt;script src="https://telegram.org/js/telegram-web-app.js"&gt;&lt;/script&gt; &lt;style&gt; body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); font-family: sans-serif; } #score { font-size: 3rem; margin-bottom: 20px; } #click-btn { padding: 20px 40px; font-size: 1.5rem; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 10px; cursor: pointer; } &lt;/style&gt; &lt;/head&gt; &lt;body&gt; &lt;div id="score"&gt;0&lt;/div&gt; &lt;button id="click-btn"&gt;Клік!&lt;/button&gt; &lt;script&gt; const tg = window.Telegram.WebApp; tg.expand(); // Розгорнути гру на весь екран let count = 0; const scoreDisplay = document.getElementById('score'); const btn = document.getElementById('click-btn'); btn.addEventListener('click', () =&gt; { count++; scoreDisplay.innerText = count; // Легка вібрація при кліку (працює в мобільній версії) if (tg.HapticFeedback) { tg.HapticFeedback.impactOccurred('medium'); } }); &lt;/script&gt; &lt;/body&gt; &lt;/html&gt;</span></p>
+</body>
+</html>
