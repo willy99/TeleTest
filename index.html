@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TG Memory Duo</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         :root {
             --bg-color: var(--tg-theme-bg-color, #ffffff);
@@ -107,14 +108,24 @@
     <div class="game-grid" id="grid"></div>
 
     <script>
+
+        const socket = io("ВАША_АДРЕСА_СЕРВЕРА");
+        // Отримуємо ID кімнати з посилання Telegram (t.me/bot?startapp=room123)
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = tg.initDataUnsafe.start_param || "default_room";
+        socket.emit("joinGame", roomId);
+
+        socket.on("opponentFlip", (cardIndex) => {
+            const card = document.querySelector(`[data-index="${cardIndex}"]`);
+            flipCard(card, false); // false — щоб не відправляти подію назад
+        });
+
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
         tg.onEvent('mainButtonClicked', () => {
             location.reload();
         });
-
-        const icons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇'];
 
         const allIcons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇', '🍉', '🍍', '🥭', '🥝', '🌽', '🥕', '🥔', '🍄', '🍔', '🍕', '🌮', '🍣', '🍦', '🍩', '🍪', '🍫'];
 
@@ -136,7 +147,7 @@
         const grid = document.getElementById('grid');
         const status = document.getElementById('status');
 
-        let timeLeft = 60; // Час у секундах
+        let timeLeft = 120; // Час у секундах
         let timerId = null;
         const timerDisplay = document.getElementById('timer-value');
 
@@ -151,7 +162,10 @@
             grid.appendChild(card);
         });
 
-        function flipCard(card) {
+        function flipCard(card, isLocal = true) {
+            if (isLocal) {
+                socket.emit("cardFlip", { roomId, cardIndex: card.dataset.index });
+            }
             startTimer(); // Запуститься тільки один раз завдяки перевірці всередині
             if (!canClick || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
