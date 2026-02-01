@@ -3,96 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telegram Clicker</title>
-
+    <title>TG Memory Duo</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
     <style>
-        /* Використовуємо змінні Telegram для автоматичної зміни тем (світла/темна) */
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --button-color: var(--tg-theme-button-color, #2481cc);
+        }
+
         body {
             margin: 0;
-            padding: 0;
+            padding: 10px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden; /* Щоб не було зайвого скролу в додатку */
         }
 
-        #score-container {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        #score-label {
-            font-size: 1.2rem;
-            opacity: 0.8;
-        }
-
-        #score {
-            font-size: 4rem;
+        #status {
+            margin: 10px 0;
             font-weight: bold;
+            text-align: center;
         }
 
-        #click-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            padding: 20px 60px;
-            font-size: 1.5rem;
-            font-weight: 600;
-            background-color: var(--tg-theme-button-color, #2481cc);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 15px;
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .player-info { padding: 5px 10px; border-radius: 8px; }
+        .active-p { background: var(--button-color); color: white; }
+
+        /* Сітка гри */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-width: 350px;
+            width: 100%;
+        }
+
+        .card {
+            aspect-ratio: 1;
+            background-color: var(--button-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: transparent;
             cursor: pointer;
-            transition: transform 0.1s active;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s, background-color 0.2s;
         }
 
-        #click-btn:active {
-            transform: scale(0.95);
+        .card.flipped {
+            background-color: var(--hint-color);
+            color: white;
+            transform: rotateY(180deg);
+        }
+
+        .card.matched {
+            background-color: #4CAF50;
+            visibility: visible;
+            color: white;
         }
     </style>
 </head>
 <body>
 
-    <div id="score-container">
-        <div id="score-label">Рахунок</div>
-        <div id="score">0</div>
+    <div id="status">Черга Гравця 1</div>
+
+    <div class="stats">
+        <div id="p1-info" class="player-info active-p">П1: <span id="p1-score">0</span></div>
+        <div id="p2-info" class="player-info">П2: <span id="p2-score">0</span></div>
     </div>
 
-    <button id="click-btn" type="button">КЛІК!</button>
+    <div class="game-grid" id="grid"></div>
 
     <script>
-        // Ініціалізація Telegram WebApp
         const tg = window.Telegram.WebApp;
-
-        // Повідомляємо Telegram, що додаток готовий
         tg.ready();
-        tg.expand(); // Розгортаємо на максимально доступну висоту
+        tg.expand();
 
-        let count = 0;
-        const scoreDisplay = document.getElementById('score');
-        const btn = document.getElementById('click-btn');
+        const icons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇'];
+        let cards = [...icons, ...icons]; // Пари
+        let flippedCards = [];
+        let scores = [0, 0];
+        let currentPlayer = 0; // 0 або 1
+        let canClick = true;
 
-        // Обробка кліку
-        btn.addEventListener('click', () => {
-            count++;
-            scoreDisplay.textContent = count;
+        // Перемішування
+        cards.sort(() => Math.random() - 0.5);
 
-            // Зворотний зв'язок: вібрація
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('light');
-            }
+        const grid = document.getElementById('grid');
+        const status = document.getElementById('status');
+
+        // Створення карток
+        cards.forEach((icon, index) => {
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.dataset.icon = icon;
+            card.dataset.index = index;
+            card.innerText = icon;
+            card.addEventListener('click', () => flipCard(card));
+            grid.appendChild(card);
         });
 
-        // Встановлюємо колір заголовка та фону згідно з темою користувача
-        tg.setHeaderColor('secondary_bg_color');
-        tg.setBackgroundColor('bg_color');
+        function flipCard(card) {
+            if (!canClick || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                canClick = false;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [c1, c2] = flippedCards;
+            const isMatch = c1.dataset.icon === c2.dataset.icon;
+
+            if (isMatch) {
+                c1.classList.add('matched');
+                c2.classList.add('matched');
+                scores[currentPlayer]++;
+                updateUI();
+                resetTurn(true);
+            } else {
+                setTimeout(() => {
+                    c1.classList.remove('flipped');
+                    c2.classList.remove('flipped');
+                    currentPlayer = currentPlayer === 0 ? 1 : 0;
+                    updateUI();
+                    resetTurn(false);
+                }, 1000);
+            }
+        }
+
+        function resetTurn(keepPlayer) {
+            flippedCards = [];
+            canClick = true;
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+            if (document.querySelectorAll('.matched').length === cards.length) {
+                status.innerText = "Гру закінчено!";
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('p1-score').innerText = scores[0];
+            document.getElementById('p2-score').innerText = scores[1];
+
+            document.getElementById('p1-info').classList.toggle('active-p', currentPlayer === 0);
+            document.getElementById('p2-info').classList.toggle('active-p', currentPlayer === 1);
+            status.innerText = `Черга Гравця ${currentPlayer + 1}`;
+        }
     </script>
 </body>
 </html>
