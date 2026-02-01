@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TG Memory Duo</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
             --bg-color: var(--tg-theme-bg-color, #ffffff);
@@ -13,239 +13,98 @@
             --hint-color: var(--tg-theme-hint-color, #999999);
             --button-color: var(--tg-theme-button-color, #2481cc);
         }
-
-        body {
-            margin: 0;
-            padding: 10px;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        #status {
-            margin: 10px 0;
-            font-weight: bold;
-            text-align: center;
-        }
-
-        .stats {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 15px;
-        }
-
-        .player-info { padding: 5px 10px; border-radius: 8px; }
-        .active-p { background: var(--button-color); color: white; }
-
-        /* Сітка гри */
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
-            max-width: 350px;
-            width: 100%;
-        }
-
-        .card {
-            aspect-ratio: 1;
-            background-color: var(--button-color);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            color: transparent;
-            cursor: pointer;
-            transition: transform 0.2s, background-color 0.2s;
-        }
-
-        .card.flipped {
-            background-color: var(--hint-color);
-            color: white;
-            transform: rotateY(180deg);
-        }
-
-        .card.matched {
-            background-color: #4CAF50;
-            visibility: visible;
-            color: white;
-        }
-
-        #timer-container {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 10px 0;
-            padding: 5px 20px;
-            border-radius: 20px;
-            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
-        }
-
-        .low-time {
-            color: #e74c3c;
-            animation: blink 0.5s infinite alternate;
-        }
-
-        @keyframes blink {
-            from { opacity: 1; }
-            to { opacity: 0.5; }
-        }
+        body { margin: 0; padding: 10px; background-color: var(--bg-color); color: var(--text-color); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #status { margin: 10px 0; font-weight: bold; height: 20px; }
+        .stats { display: flex; gap: 20px; margin-bottom: 15px; }
+        .player-info { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--hint-color); }
+        .active-p { background: var(--button-color); color: white; border: none; }
+        .game-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; width: 100%; max-width: 400px; }
+        .card { aspect-ratio: 1; background-color: var(--button-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: transparent; cursor: pointer; }
+        .card.flipped { background-color: var(--hint-color); color: white; }
+        .card.matched { background-color: #4CAF50; color: white; cursor: default; }
+        #timer-container { font-size: 1.2rem; margin: 10px 0; }
+        #share-btn { margin-top: 20px; padding: 10px 20px; background: var(--button-color); color: white; border: none; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-    <div id="status">Черга Гравця 1</div>
-    <div id="timer-container">
-        Час: <span id="timer-value">60</span>с
-    </div>
+    <div id="status">Очікування суперника...</div>
+    <div id="timer-container">Час: <span id="timer-value">120</span>с</div>
+
     <div class="stats">
-        <div id="p1-info" class="player-info active-p">П1: <span id="p1-score">0</span></div>
-        <div id="p2-info" class="player-info">П2: <span id="p2-score">0</span></div>
+        <div id="p1-info" class="player-info">Ви: <span id="p1-score">0</span></div>
+        <div id="p2-info" class="player-info">Суперник: <span id="p2-score">0</span></div>
     </div>
 
     <div class="game-grid" id="grid"></div>
-
     <button id="share-btn">Запросити друга</button>
 
     <script>
-
-        document.getElementById('share-btn').addEventListener('click', () => {
-            const inviteLink = `https://t.me/ВАШ_БОТ/app_name?startapp=${roomId}`;
-            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=Давай зіграємо в Memory!`);
-        });
-
-        const socket = io("https://teletest-nr8k.onrender.com");
-        // Отримуємо ID кімнати з посилання Telegram (t.me/bot?startapp=room123)
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomId = tg.initDataUnsafe.start_param || "lobby";
-
-        socket.emit('join_room', roomId);
-
-        /*socket.on("opponentFlip", (cardIndex) => {
-            const card = document.querySelector(`[data-index="${cardIndex}"]`);
-            flipCard(card, false); // false — щоб не відправляти подію назад
-        });*/
-
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        tg.onEvent('mainButtonClicked', () => {
-            location.reload();
-        });
 
-        const allIcons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇', '🍉', '🍍', '🥭', '🥝', '🌽', '🥕', '🥔', '🍄', '🍔', '🍕', '🌮', '🍣', '🍦', '🍩', '🍪', '🍫'];
-
-        // Вибираємо потрібну кількість залежно від розміру
-        const rows = 6;
-        const cols = 6; // або 8
-        const totalPairs = (rows * cols) / 2;
-        const selectedIcons = allIcons.slice(0, totalPairs);
-        let cards = [...selectedIcons, ...selectedIcons];
-
-        let flippedCards = [];
-        let scores = [0, 0];
-        let currentPlayer = 0; // 0 або 1
-        let canClick = true;
-
-        // Перемішування
-        cards.sort(() => Math.random() - 0.5);
-
-        const grid = document.getElementById('grid');
-        const status = document.getElementById('status');
-
-        let timeLeft = 120; // Час у секундах
-        let timerId = null;
-        const timerDisplay = document.getElementById('timer-value');
+        const socket = io(); // Підключається до того ж домену
+        const roomId = new URLSearchParams(window.location.search).get('startapp') || tg.initDataUnsafe.start_param || "lobby";
 
         let myTurn = false;
+        let scores = [0, 0];
+        let flippedCards = [];
+        let canClick = false;
+        let timeLeft = 120;
+        let timerId = null;
 
-        // Створення карток
-        cards.forEach((icon, index) => {
-            const card = document.createElement('div');
-            card.classList.add('card');
-            card.dataset.icon = icon;
-            card.dataset.index = index;
-            card.innerText = icon;
-            card.addEventListener('click', () => flipCard(card));
-            grid.appendChild(card);
+        socket.emit('join_room', roomId);
+
+        document.getElementById('share-btn').onclick = () => {
+            const botName = "willy2005_test_bot"; // ЗАМІНІТЬ НА СВОГО БОТА
+            const inviteLink = `https://t.me/${botName}/app?startapp=${roomId}`;
+            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=Зіграй зі мною в Memory!`);
+        };
+
+        socket.on('init_game', (data) => {
+            myTurn = (socket.id === data.firstTurn);
+            renderGrid(data.deck);
+            canClick = true;
+            startTimer();
+            updateUI();
         });
 
-        function flipCard(card, isLocal = true) {
-            if (isLocal) {
-                socket.emit("cardFlip", { roomId, cardIndex: card.dataset.index });
-            }
-            startTimer(); // Запуститься тільки один раз завдяки перевірці всередині
-            if (!canClick || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+        function renderGrid(deck) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            deck.forEach((icon, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.icon = icon;
+                card.dataset.index = index;
+                card.innerText = icon;
+                card.onclick = () => handleCardClick(card);
+                grid.appendChild(card);
+            });
+        }
 
+        function handleCardClick(card) {
+            if (!myTurn || !canClick || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+            flipCard(card);
+            socket.emit('move', { roomId, cardIndex: card.dataset.index });
+        }
+
+        socket.on('opponent_move', (data) => {
+            const card = document.querySelector(`[data-index="${data.cardIndex}"]`);
+            flipCard(card);
+        });
+
+        function flipCard(card) {
             card.classList.add('flipped');
             flippedCards.push(card);
 
             if (flippedCards.length === 2) {
                 canClick = false;
-                checkMatch();
+                setTimeout(checkMatch, 700);
             }
         }
-
-        function sendMove(cardIndex) {
-            socket.emit('move', {
-                roomId: roomId,
-                cardIndex: cardIndex,
-                player: tg.initDataUnsafe.user?.first_name || "Гравець"
-            });
-        }
-
-        // Слухаємо ходи суперника
-        socket.on('opponent_move', (data) => {
-            const card = document.querySelector(`[data-index="${data.cardIndex}"]`);
-            if (card && !card.classList.contains('flipped')) {
-                // Викликаємо вашу функцію перевороту, але з міткою,
-                // що це прийшло з мережі (щоб не зациклити)
-                flipCard(card, false);
-            }
-        });
-
-        // Чекаємо на старт гри від сервера
-        socket.on('init_game', (data) => {
-            const deck = data.deck;
-            myTurn = (socket.id === data.firstTurn);
-            renderGrid(deck);
-            updateStatus();
-        });
-
-        function renderGrid(deck) {
-            const grid = document.getElementById('grid');
-            grid.innerHTML = ''; // Очищуємо стару сітку
-
-            deck.forEach((icon, index) => {
-                const card = document.createElement('div');
-                card.classList.add('card');
-                card.dataset.icon = icon;
-                card.dataset.index = index;
-                card.innerText = icon;
-                card.addEventListener('click', () => {
-                    if (myTurn) {
-                        flipCard(card, true);
-                        socket.emit('move', { roomId, cardIndex: index });
-                    }
-                });
-                grid.appendChild(card);
-            });
-        }
-
-        function updateStatus() {
-            const status = document.getElementById('status');
-            status.innerText = myTurn ? "Твій хід!" : "Хід суперника...";
-        }
-
-        // Коли суперник походив
-        socket.on('opponent_move', (data) => {
-            const card = document.querySelector(`[data-index="${data.cardIndex}"]`);
-            flipCard(card, false);
-            myTurn = true; // Тепер наша черга
-            updateStatus();
-        });
 
         function checkMatch() {
             const [c1, c2] = flippedCards;
@@ -254,71 +113,43 @@
             if (isMatch) {
                 c1.classList.add('matched');
                 c2.classList.add('matched');
-                scores[currentPlayer]++;
-                updateUI();
-                resetTurn(true);
+                if (myTurn) scores[0]++; else scores[1]++;
             } else {
-                setTimeout(() => {
-                    c1.classList.remove('flipped');
-                    c2.classList.remove('flipped');
-                    currentPlayer = currentPlayer === 0 ? 1 : 0;
-                    updateUI();
-                    resetTurn(false);
-                }, 1000);
+                c1.classList.remove('flipped');
+                c2.classList.remove('flipped');
+                myTurn = !myTurn;
             }
-        }
 
-        function resetTurn(keepPlayer) {
             flippedCards = [];
             canClick = true;
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            updateUI();
 
-            if (document.querySelectorAll('.matched').length === cards.length) {
-                status.innerText = "Гру закінчено!";
-            }
+            if (document.querySelectorAll('.matched').length === 36) endGame("Всі пари знайдено!");
         }
 
         function updateUI() {
             document.getElementById('p1-score').innerText = scores[0];
             document.getElementById('p2-score').innerText = scores[1];
-
-            document.getElementById('p1-info').classList.toggle('active-p', currentPlayer === 0);
-            document.getElementById('p2-info').classList.toggle('active-p', currentPlayer === 1);
-            status.innerText = `Черга Гравця ${currentPlayer + 1}`;
+            document.getElementById('status').innerText = myTurn ? "Твій хід!" : "Хід суперника...";
+            document.getElementById('p1-info').className = myTurn ? 'player-info active-p' : 'player-info';
+            document.getElementById('p2-info').className = !myTurn ? 'player-info active-p' : 'player-info';
         }
 
-
         function startTimer() {
-            if (timerId) return; // Якщо таймер уже запущений, нічого не робимо
-
+            if (timerId) return;
             timerId = setInterval(() => {
                 timeLeft--;
-                timerDisplay.innerText = timeLeft;
-
-                // Візуальне попередження, якщо залишилося менше 10 секунд
-                if (timeLeft <= 10) {
-                    document.getElementById('timer-container').classList.add('low-time');
-                }
-
-                if (timeLeft <= 0) {
-                    clearInterval(timerId);
-                    endGame("Час вичерпано!");
-                }
+                document.getElementById('timer-value').innerText = timeLeft;
+                if (timeLeft <= 0) endGame("Час вийшов!");
             }, 1000);
         }
 
-        function endGame(reason) {
+        function endGame(msg) {
+            clearInterval(timerId);
             canClick = false;
-            let winnerText = "";
-            if (scores[0] > scores[1]) winnerText = "Гравець 1 переміг!";
-            else if (scores[1] > scores[0]) winnerText = "Гравець 2 переміг!";
-            else winnerText = "Нічия!";
-
-            status.innerHTML = `⚠️ ${reason}<br>${winnerText}`;
-
-            // Показуємо кнопку перезапуску в Telegram
-            tg.MainButton.setText("Грати знову");
-            tg.MainButton.show();
+            document.getElementById('status').innerText = msg;
+            tg.MainButton.setText("Грати знову").show();
+            tg.MainButton.onClick(() => location.reload());
         }
     </script>
 </body>

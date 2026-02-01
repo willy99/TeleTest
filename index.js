@@ -1,39 +1,45 @@
-
 const express = require('express');
-const path = require('path'); // Додаємо цей модуль
-const app = express();
-
-// Кажемо серверу, що всі файли в папці "public" доступні публічно
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Якщо користувач заходить на головну — віддаємо index.html
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-// Налаштовуємо CORS, щоб ваш сайт на Vercel міг підключитися
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: { origin: "*", methods: ["GET", "POST"] }
 });
+
+// Налаштування статичних файлів (папка public)
+app.use(express.static(path.join(__dirname, 'public')));
+
+const allIcons = ['🍎', '🍌', '🍒', '🥑', '🥦', '🍓', '🍋', '🍇', '🍉', '🍍', '🥭', '🥝', '🌽', '🥕', '🥔', '🍄', '🍔', '🍕'];
+let rooms = {};
 
 io.on('connection', (socket) => {
     console.log('Гравець підключився:', socket.id);
 
     socket.on('join_room', (roomId) => {
         socket.join(roomId);
-        console.log(`Гравець ${socket.id} зайшов у кімнату ${roomId}`);
+
+        if (!rooms[roomId]) {
+            // Створюємо колоду тільки для першого гравця
+            const deck = [...allIcons, ...allIcons].sort(() => Math.random() - 0.5);
+            rooms[roomId] = { deck, players: [] };
+        }
+
+        rooms[roomId].players.push(socket.id);
+
+        // Коли в кімнаті двоє — починаємо гру
+        if (rooms[roomId].players.length === 2) {
+            io.to(roomId).emit('init_game', {
+                deck: rooms[roomId].deck,
+                firstTurn: rooms[roomId].players[0]
+            });
+        }
     });
 
     socket.on('move', (data) => {
-        // Пересилаємо хід іншому гравцю в цій же кімнаті
+        // Транслюємо хід іншому гравцю
         socket.to(data.roomId).emit('opponent_move', data);
     });
 
@@ -42,7 +48,12 @@ io.on('connection', (socket) => {
     });
 });
 
+// Роут для віддачі сторінки
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Сервер запущено на порту ${PORT}`);
+    console.log(`Сервер працює на порту ${PORT}`);
 });
