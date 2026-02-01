@@ -1,4 +1,16 @@
+
 const express = require('express');
+const path = require('path'); // Додаємо цей модуль
+const app = express();
+
+// Кажемо серверу, що всі файли в папці "public" доступні публічно
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Якщо користувач заходить на головну — віддаємо index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 const http = require('http');
 const { Server } = require('socket.io');
 

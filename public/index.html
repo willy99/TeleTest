@@ -107,18 +107,26 @@
 
     <div class="game-grid" id="grid"></div>
 
+    <button id="share-btn">Запросити друга</button>
+
     <script>
 
-        const socket = io("ВАША_АДРЕСА_СЕРВЕРА");
+        document.getElementById('share-btn').addEventListener('click', () => {
+            const inviteLink = `https://t.me/ВАШ_БОТ/app_name?startapp=${roomId}`;
+            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=Давай зіграємо в Memory!`);
+        });
+
+        const socket = io("https://teletest-nr8k.onrender.com");
         // Отримуємо ID кімнати з посилання Telegram (t.me/bot?startapp=room123)
         const urlParams = new URLSearchParams(window.location.search);
-        const roomId = tg.initDataUnsafe.start_param || "default_room";
-        socket.emit("joinGame", roomId);
+        const roomId = tg.initDataUnsafe.start_param || "lobby";
 
-        socket.on("opponentFlip", (cardIndex) => {
+        socket.emit('join_room', roomId);
+
+        /*socket.on("opponentFlip", (cardIndex) => {
             const card = document.querySelector(`[data-index="${cardIndex}"]`);
             flipCard(card, false); // false — щоб не відправляти подію назад
-        });
+        });*/
 
         const tg = window.Telegram.WebApp;
         tg.ready();
@@ -151,6 +159,8 @@
         let timerId = null;
         const timerDisplay = document.getElementById('timer-value');
 
+        let myTurn = false;
+
         // Створення карток
         cards.forEach((icon, index) => {
             const card = document.createElement('div');
@@ -177,6 +187,65 @@
                 checkMatch();
             }
         }
+
+        function sendMove(cardIndex) {
+            socket.emit('move', {
+                roomId: roomId,
+                cardIndex: cardIndex,
+                player: tg.initDataUnsafe.user?.first_name || "Гравець"
+            });
+        }
+
+        // Слухаємо ходи суперника
+        socket.on('opponent_move', (data) => {
+            const card = document.querySelector(`[data-index="${data.cardIndex}"]`);
+            if (card && !card.classList.contains('flipped')) {
+                // Викликаємо вашу функцію перевороту, але з міткою,
+                // що це прийшло з мережі (щоб не зациклити)
+                flipCard(card, false);
+            }
+        });
+
+        // Чекаємо на старт гри від сервера
+        socket.on('init_game', (data) => {
+            const deck = data.deck;
+            myTurn = (socket.id === data.firstTurn);
+            renderGrid(deck);
+            updateStatus();
+        });
+
+        function renderGrid(deck) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = ''; // Очищуємо стару сітку
+
+            deck.forEach((icon, index) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.icon = icon;
+                card.dataset.index = index;
+                card.innerText = icon;
+                card.addEventListener('click', () => {
+                    if (myTurn) {
+                        flipCard(card, true);
+                        socket.emit('move', { roomId, cardIndex: index });
+                    }
+                });
+                grid.appendChild(card);
+            });
+        }
+
+        function updateStatus() {
+            const status = document.getElementById('status');
+            status.innerText = myTurn ? "Твій хід!" : "Хід суперника...";
+        }
+
+        // Коли суперник походив
+        socket.on('opponent_move', (data) => {
+            const card = document.querySelector(`[data-index="${data.cardIndex}"]`);
+            flipCard(card, false);
+            myTurn = true; // Тепер наша черга
+            updateStatus();
+        });
 
         function checkMatch() {
             const [c1, c2] = flippedCards;
