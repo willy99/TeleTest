@@ -57,9 +57,14 @@
         socket.emit('join_room', roomId);
 
         document.getElementById('share-btn').onclick = () => {
-            const botName = "willy2005_test_bot"; // ЗАМІНІТЬ НА СВОГО БОТА
-            const inviteLink = `https://t.me/${botName}/app?startapp=${roomId}`;
-            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=Зіграй зі мною в Memory!`);
+            // Створюємо унікальний ID, якщо ми в лоббі, або використовуємо поточний
+            const uniqueRoomId = (roomId === "lobby") ? "room_" + Math.random().toString(36).substring(7) : roomId;
+
+            const botName = "willy2005_test_bot";
+            // Формуємо посилання з унікальним ID
+            const inviteLink = `https://t.me/${botName}/app?startapp=${uniqueRoomId}`;
+
+            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=Зіграй зі мною в Memory! Кімната: ${uniqueRoomId}`);
         };
 
         socket.on('init_game', (data) => {
