@@ -22,29 +22,41 @@ io.on('connection', (socket) => {
         socket.join(roomId);
 
         if (!rooms[roomId]) {
-            // Створюємо колоду тільки для першого гравця
+            // Створюємо кімнату, але карти ще не відправляємо
             const deck = [...allIcons, ...allIcons].sort(() => Math.random() - 0.5);
-            rooms[roomId] = { deck, players: [] };
+            rooms[roomId] = {
+                deck: deck,
+                players: []
+            };
         }
 
-        rooms[roomId].players.push(socket.id);
+        // Додаємо гравця, якщо його ще немає в списку кімнати
+        if (!rooms[roomId].players.includes(socket.id)) {
+            rooms[roomId].players.push(socket.id);
+        }
 
-        // Коли в кімнаті двоє — починаємо гру
+        console.log(`Кімната ${roomId}: гравців ${rooms[roomId].players.length}`);
+
+        // Важливо: відправляємо ініціалізацію, ТІЛЬКИ коли є двоє
         if (rooms[roomId].players.length === 2) {
+            // Надсилаємо ОБОМ гравцям у кімнаті сигнал старту
             io.to(roomId).emit('init_game', {
                 deck: rooms[roomId].deck,
-                firstTurn: rooms[roomId].players[0]
+                firstTurn: rooms[roomId].players[0] // Перший, хто зайшов, той і ходить
             });
         }
     });
 
     socket.on('move', (data) => {
-        // Транслюємо хід іншому гравцю
+        // Пересилаємо хід супернику
         socket.to(data.roomId).emit('opponent_move', data);
     });
 
     socket.on('disconnect', () => {
-        console.log('Гравець відключився');
+        // Логіка видалення гравця з кімнати при виході (опціонально)
+        for (const roomId in rooms) {
+            rooms[roomId].players = rooms[roomId].players.filter(id => id !== socket.id);
+        }
     });
 });
 
