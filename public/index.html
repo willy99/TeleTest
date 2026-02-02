@@ -59,7 +59,8 @@
         document.getElementById('share-btn').onclick = () => {
             // Створюємо унікальний ID, якщо ми в лоббі, або використовуємо поточний
             const uniqueRoomId = (roomId === "lobby") ? "room_" + Math.random().toString(36).substring(7) : roomId;
-
+            console.log('>>>> unique room id = ' + uniqueRoomId);
+            console.log('>>>>  room id = ' + roomId);
             const botName = "willy2005_test_bot";
             // Формуємо посилання з унікальним ID
             const inviteLink = `https://t.me/${botName}/app?startapp=${uniqueRoomId}`;
